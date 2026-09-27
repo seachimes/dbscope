@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A read-only token is all this workflow needs.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Format, lint, typecheck, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.18
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Formatting, lint, types, and the runtime-support guard.
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm build
+
+  databases:
+    name: Adapter integration (${{ matrix.engine }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [mysql, postgres]
+    # `services` cannot be varied by matrix value, so both databases start for
+    # both legs and each leg connects only to the one it is testing.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: appdb
+          MYSQL_USER: appuser
+          MYSQL_PASSWORD: apppass
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpass"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: appdb
+          POSTGRES_USER: appuser
+          POSTGRES_PASSWORD: apppass
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U appuser -d appdb"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.18
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # The service containers are reachable directly, so these runs exercise
+      # the adapters without SSH. The tunnel itself is covered by the local
+      # Docker fixture, which needs privileges CI does not grant.
+      - name: Run adapter smoke test
+        env:
+          DBSCOPE_ENGINE: ${{ matrix.engine }}
+          DBSCOPE_DB_HOST: 127.0.0.1
+          DBSCOPE_DB_PORT: ${{ matrix.engine == 'postgres' && '5432' || '3306' }}
+          DBSCOPE_DB_USER: appuser
+          DBSCOPE_DB_PASSWORD: apppass
+          DBSCOPE_DB_NAME: appdb
+        run: pnpm tsx scripts/smoke-adapter.ts

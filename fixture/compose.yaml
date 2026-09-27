@@ -1,0 +1,67 @@
+# Local integration fixture: sshd fronts MySQL and PostgreSQL on a private network.
+# Database ports are deliberately NOT published to the host, exercising the same
+# SSH tunnel used with private production and development environments.
+name: dbscope-fixture
+
+services:
+  mysql:
+    image: mysql:8.0
+    command:
+      - --performance-schema=ON
+      - --performance-schema-consumer-statements-digest=ON
+      - --slow-query-log=ON
+      - --long-query-time=0.1
+      - --innodb-buffer-pool-size=256M
+      - --local-infile=1
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: appdb
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass
+    volumes:
+      - ./mysql:/docker-entrypoint-initdb.d:ro
+    networks: [vm]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-prootpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+
+  postgres:
+    image: postgres:16
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: apppass
+    volumes:
+      - ./postgres:/docker-entrypoint-initdb.d:ro
+    networks: [vm]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  sshd:
+    build:
+      context: .
+      dockerfile: ssh/Dockerfile
+    ports:
+      # Bound to loopback: the fixture ships a known keypair, so publishing it
+      # on every interface would expose a shell to the whole network.
+      - "127.0.0.1:${DBSCOPE_SSH_PORT:-2222}:22"
+    networks: [vm]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+networks:
+  vm:
+    driver: bridge

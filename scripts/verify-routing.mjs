@@ -1,0 +1,75 @@
+import { launchChromium } from "./browser.mjs";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+const base = process.env.BASE_URL ?? "http://127.0.0.1:5274";
+const browser = await launchChromium();
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+await page.goto(`${base}/queries`);
+await page.evaluate(() => localStorage.clear());
+await page.reload();
+await page.waitForSelector(".connect-title");
+await page.fill("#sshHost", "127.0.0.1");
+await page.fill("#sshPort", readFileSync("fixture/.ssh-port", "utf8").trim());
+await page.fill("#sshUser", "appuser");
+await page.fill("#sshKey", path.resolve("fixture/ssh/id_ed25519"));
+await page.fill("#dbHost", "mysql");
+await page.fill("#dbUser", "appuser");
+await page.fill("#dbPass", "apppass");
+await page.fill("#dbName", "appdb");
+await page.click("button[type=submit]");
+await page.waitForSelector(".qrow", { timeout: 45000 });
+if (!page.url().endsWith("/queries")) throw new Error(`deep-link destination lost: ${page.url()}`);
+// MySQL has no per-database reset, so the control must not be offered at all.
+if (await page.getByRole("button", { name: /リセット|Reset/ }).count())
+  throw new Error("MySQL must not offer a statistics reset");
+// A busy button shows a spinner in place of its label without changing size.
+const refresh = page.getByRole("button", { name: /^(更新|Refresh)$/ });
+const before = await refresh.boundingBox();
+await page.route("**/api/queries*", async (route) => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  await route.continue();
+});
+await refresh.click();
+await page.waitForSelector("button[aria-busy=true] .btn-spinner");
+const during = await refresh.boundingBox();
+if (!before || !during || before.width !== during.width || before.height !== during.height)
+  throw new Error(`busy button resized: ${JSON.stringify({ before, during })}`);
+await page.waitForSelector("button[aria-busy=true]", { state: "detached" });
+await page.unroute("**/api/queries*");
+await page.getByRole("link", { name: /概要|Overview/ }).click();
+await page.waitForSelector(".graph-svg");
+if (!page.url().endsWith("/overview")) throw new Error("overview URL missing");
+// A pan that starts and ends on the same node fires a click; it must not navigate.
+const nodeBox = await page.locator(".node-g").first().boundingBox();
+if (!nodeBox) throw new Error("graph node has no box");
+const cx = nodeBox.x + nodeBox.width / 2;
+const cy = nodeBox.y + nodeBox.height / 2;
+await page.mouse.move(cx, cy);
+await page.mouse.down();
+await page.mouse.move(cx + 60, cy + 40, { steps: 6 });
+await page.mouse.move(cx + 1, cy + 1, { steps: 6 });
+await page.mouse.up();
+await page.waitForTimeout(200);
+if (!page.url().endsWith("/overview")) throw new Error(`a pan opened a table: ${page.url()}`);
+await page.locator(".node-g").first().click();
+await page.waitForSelector(".tabs");
+const tableUrl = page.url();
+if (!/\/tables\//.test(tableUrl)) throw new Error("table URL missing");
+await page.goBack();
+await page.waitForSelector(".graph-svg");
+if (!page.url().endsWith("/overview")) throw new Error("browser back failed");
+await page.goForward();
+await page.waitForSelector(".tabs");
+if (page.url() !== tableUrl) throw new Error("browser forward failed");
+await page.reload();
+await page.waitForSelector(".tabs");
+if (page.url() !== tableUrl) throw new Error("deep refresh failed");
+await page.getByRole("link", { name: "EXPLAIN" }).click();
+await page.waitForSelector(".sql-editor");
+await page.fill(".sql-editor", "SELECT id FROM posts WHERE id = 42");
+await page.getByRole("button", { name: /実行計画を確認|Explain/ }).click();
+await page.waitForSelector(".flow-step");
+await page.goBack();
+await page.waitForSelector(".tabs");
+console.log("TanStack routes: deep link, back, forward, and refresh passed");
+await browser.close();

@@ -1,0 +1,50 @@
+{
+  // Targets are chosen from what the *supported* runtimes actually ship, not
+  // from the newest spec. The oldest supported Node line is 22 (see
+  // package.json engines) and the UI targets baseline-widely-available browsers.
+  //
+  // ES2024 is the highest level both provide in full, so that is the target.
+  //
+  // The lib adds esnext.iterator on top, because iterator helpers do ship on
+  // Node 22 and make grouping code considerably clearer. It is added as that
+  // single library rather than as "ES2025" — which TypeScript 7 does accept —
+  // because the full ES2025 lib also declares RegExp.escape, Error.isError and
+  // Float16Array, none of which exist on Node 22. Those would type-check
+  // happily and then fail at runtime on a supported version, so
+  // `pnpm lint:runtime` is the backstop for that whole class of mistake.
+  "compilerOptions": {
+    "target": "ES2024",
+    "lib": ["ES2024", "ESNext.Iterator", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    "strict": true,
+    // Indexing an array can always miss, and the fixture code reads plan steps
+    // and catalog rows by index constantly.
+    "noUncheckedIndexedAccess": true,
+    // Distinguishes "property omitted" from "property explicitly undefined".
+    // This is what keeps an optional field in shared/types.ts honest about
+    // whether the server may send it as null-ish.
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    // Keeps type-only imports erasable, which the server depends on: it runs
+    // through Node's type stripping, with no TypeScript-aware loader.
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "types": ["node", "vite/client"],
+    "paths": {
+      "#shared/*": ["./shared/*"]
+    }
+  },
+  "include": ["src", "server", "shared", "scripts", "vite.config.ts"]
+}

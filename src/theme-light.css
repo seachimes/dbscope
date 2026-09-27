@@ -1,0 +1,270 @@
+/* Light theme -------------------------------------------------------------- */
+:root[data-theme="light"] {
+  /* Keeps native scrollbars and form controls light to match these surfaces. */
+  color-scheme: light;
+
+  --ink: #ffffff;
+  --ink-2: #fafafa;
+  --panel: #ffffff;
+  --panel-2: #f4f4f5;
+  --line: #e4e4e7;
+  --line-bright: #d4d4d8;
+  /* For borders that carry meaning: 3.4:1 on white, per WCAG 1.4.11. */
+  --line-strong: #8b8b96;
+  --text: #09090b;
+  --text-dim: #52525b;
+  /* Darkened from #71717a, which measured 4.40:1 on --panel-2 — just under the
+     4.5:1 needed for body text on the tinted surface. */
+  --text-faint: #6b6b75;
+  --t0: #0e7490;
+  --t1: #15803d;
+  --t2: #a16207;
+  --t3: #c2410c;
+  --t4: #dc2626;
+  --ok: #15803d;
+  --warn: #a16207;
+  --crit: #dc2626;
+}
+
+:root[data-theme="light"] body,
+:root[data-theme="light"] .connect-wrap,
+:root[data-theme="light"] .rail {
+  background: #fafafa;
+}
+:root[data-theme="light"] .nav-item:hover,
+:root[data-theme="light"] .tbl tbody tr:hover td {
+  background: #f4f4f5;
+}
+:root[data-theme="light"] .nav-item[aria-current="true"] {
+  background: #e4e4e7;
+  color: #09090b;
+}
+:root[data-theme="light"] .brand-dot {
+  background: #18181b;
+}
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .panel,
+:root[data-theme="light"] .statbar,
+:root[data-theme="light"] .verdict {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+:root[data-theme="light"] .panel-count {
+  background: #f4f4f5;
+}
+:root[data-theme="light"] .btn {
+  background: #fff;
+  border-color: #d4d4d8;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+:root[data-theme="light"] .btn:hover:not(:disabled) {
+  background: #f4f4f5;
+  border-color: #a1a1aa;
+}
+:root[data-theme="light"] .btn-primary,
+:root[data-theme="light"] .btn-primary:hover:not(:disabled) {
+  color: #fafafa;
+  background: #18181b;
+  border-color: #18181b;
+}
+:root[data-theme="light"] .btn-danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+:root[data-theme="light"] .field input,
+:root[data-theme="light"] .field select,
+:root[data-theme="light"] .field textarea,
+:root[data-theme="light"] .inline-input,
+:root[data-theme="light"] .sql-editor,
+:root[data-theme="light"] pre.raw,
+:root[data-theme="light"] .issue-ddl {
+  background: #fff;
+  border-color: #d4d4d8;
+}
+:root[data-theme="light"] .tbl th {
+  background: #fafafa;
+}
+:root[data-theme="light"] .graph-wrap {
+  background: #fafafa;
+}
+:root[data-theme="light"] .graph-legend,
+:root[data-theme="light"] .graph-hint {
+  background: rgb(255 255 255 / 0.94);
+}
+:root[data-theme="light"] .flow-step {
+  background: #fafafa;
+}
+:root[data-theme="light"] .flow-step-critical {
+  background: #fff1f2;
+}
+:root[data-theme="light"] .flow-step-warning {
+  background: #fffbeb;
+}
+:root[data-theme="light"] .notice {
+  background: #fafafa;
+}
+:root[data-theme="light"] .error-box {
+  background: #fff1f2;
+  color: #991b1b;
+  border-color: #fecdd3;
+}
+:root[data-theme="light"] .sev-critical,
+:root[data-theme="light"] .badge-crit {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+:root[data-theme="light"] .sev-warning,
+:root[data-theme="light"] .badge-warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+:root[data-theme="light"] .chip {
+  background: #dcfce7;
+  color: #166534;
+}
+:root[data-theme="light"] .chip-bad {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+:root[data-theme="light"] .col-chip {
+  background: #fff;
+}
+:root[data-theme="light"] .col-chip[aria-pressed="true"] {
+  background: #e4e4e7;
+  color: #09090b;
+}
+
+.preference-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.preference-select {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.preference-controls select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 34px 6px 10px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line-bright);
+  border-radius: 6px;
+  font: 12px var(--display);
+  line-height: 20px;
+  appearance: none;
+  -webkit-appearance: none;
+  text-overflow: clip;
+}
+.preference-chevron {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-70%) rotate(45deg);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.preference-controls-compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+.preference-controls-compact .preference-select,
+.preference-controls-compact select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.rail-preferences {
+  margin-top: auto;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-top: 1px solid var(--line);
+}
+.rail-preferences + .rail-section {
+  margin-top: 0;
+}
+.rail-preferences .preference-controls {
+  gap: 6px;
+}
+.connect-head {
+  position: relative;
+}
+.connect-preferences {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+@media (max-width: 820px) {
+  .rail-preferences {
+    display: block;
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 6px;
+    border: 0;
+  }
+  .rail-preferences + .rail-section {
+    display: none;
+  }
+  .preference-controls-compact {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(72px, 1fr));
+    width: min(194px, 100%);
+  }
+}
+@media (max-width: 560px) {
+  .shell > .rail {
+    flex-wrap: wrap;
+  }
+  .shell > .rail .brand {
+    flex: 0 0 auto;
+  }
+  .shell > .rail .nav {
+    min-width: 0;
+  }
+  .shell > .rail .rail-preferences {
+    flex: 1 0 100%;
+    margin: 0;
+    padding: 6px 10px 8px;
+    border-top: 1px solid var(--line);
+  }
+  .shell > .rail .preference-controls-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+}
+@media (max-width: 560px) {
+  .connect-preferences {
+    position: static;
+    margin-bottom: 20px;
+  }
+  .connect-preferences .preference-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .preference-controls select {
+    width: 100%;
+    min-width: 0;
+  }
+}

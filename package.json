@@ -1,0 +1,57 @@
+{
+  "name": "dbscope",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "MySQL and PostgreSQL performance inspector — find database bottlenecks in seconds.",
+  "imports": {
+    "#shared/*": "./shared/*"
+  },
+  "packageManager": "pnpm@11.8.0",
+  "engines": {
+    "node": "^22.18.0 || ^24.11.0 || >=26.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n web,api -c cyan,magenta \"vite\" \"pnpm run dev:api\"",
+    "dev:api": "DBSCOPE_DEV_ORIGIN=http://127.0.0.1:5273 tsx watch --env-file-if-exists=.env server/index.ts",
+    "build": "vp build",
+    "start": "node --experimental-strip-types server/index.ts",
+    "check": "vp fmt --check && vp lint && pnpm typecheck && pnpm lint:runtime",
+    "typecheck": "tsc --noEmit",
+    "lint": "vp lint",
+    "lint:runtime": "node scripts/lint-runtime-support.mjs",
+    "fmt": "vp fmt",
+    "test": "tsx --test --experimental-test-module-mocks \"server/**/*.test.ts\" \"src/**/*.test.ts\" \"scripts/*.test.ts\"",
+    "fixture:up": "bash fixture/up.sh",
+    "fixture:down": "bash fixture/down.sh",
+    "verify": "tsx scripts/verify-e2e.ts",
+    "verify:postgres": "tsx scripts/verify-postgres.ts && tsx scripts/verify-postgres-filters.ts",
+    "verify:parity": "tsx scripts/verify-fixture-parity.ts",
+    "verify:ui": "node scripts/verify-ui.mjs"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@tanstack/react-router": "^1.170.39",
+    "hono": "^4.6.14",
+    "mysql2": "^3.11.5",
+    "pg": "^8.23.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "ssh2": "^1.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@types/ssh2": "^1.15.1",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^9.1.0",
+    "playwright-core": "^1.63.0",
+    "tsx": "^4.19.2",
+    "typescript": "^7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

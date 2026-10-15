@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+# Needed to create the GitHub Release and upload the tarball.
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish the install tarball
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      # Stage a self-contained runtime tree for Ansible.
+      #
+      # The server is never built: it runs as TypeScript through Node's type
+      # stripping (see tsconfig.json / package.json "start"), so server/ and
+      # shared/ ship as-is. Only the UI needs `pnpm build` (dist/). What is left
+      # is the runtime dependency tree, installed prod-only with the hoisted
+      # linker so it is a flat, symlink-free directory that survives tar and
+      # extraction on the target.
+      - name: Stage runtime tree
+        run: |
+          set -euo pipefail
+          stage="release/dbscope"
+          mkdir -p "$stage"
+          cp -R server shared dist "$stage/"
+          # LICENSE ships with the archive (MIT notice condition), as pprotein does.
+          cp package.json pnpm-lock.yaml pnpm-workspace.yaml LICENSE "$stage/"
+          cd "$stage"
+          # Flat, symlink-free node_modules (`node-linker=hoisted`) so the tree
+          # survives tar and extraction unchanged on the target.
+          printf 'node-linker=hoisted\n' > .npmrc
+          pnpm install --prod --frozen-lockfile
+          # The lockfile / workspace file / npmrc are build-time inputs only.
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml .npmrc
+
+      # Asset name matches what ansible/measurement/dbscope.yml expects:
+      # dbscope_<version-without-v>_linux_amd64.tar.gz
+      - name: Create tarball
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          asset="dbscope_${version}_linux_amd64.tar.gz"
+          tar -C release/dbscope -czf "$asset" .
+          ls -l "$asset"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            "dbscope_${version}_linux_amd64.tar.gz" \
+            --title "DBSCOPE ${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag

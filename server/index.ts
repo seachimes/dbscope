@@ -6,16 +6,29 @@ import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { api } from "./routes/api.ts";
 import { HttpError, shutdownAll } from "./core/session.ts";
-import { checkLocalRequest } from "./core/request-origin.ts";
+import { checkLocalRequest, publicHostOf } from "./core/request-origin.ts";
 import type { ApiError } from "#shared/types.ts";
 
 const app = new Hono();
 const port = Number(process.env.PORT ?? 5274);
 
+// Serving a public URL (through a tunnel or reverse proxy) is opt-in. A
+// malformed value only narrows what is served, so say so once at startup
+// instead of leaving the operator guessing why the URL 403s.
+const publicOrigin = process.env.DBSCOPE_PUBLIC_ORIGIN;
+if (publicOrigin !== undefined && publicHostOf(publicOrigin) === undefined) {
+  console.warn(`[config] ignoring DBSCOPE_PUBLIC_ORIGIN (not a bare origin): ${publicOrigin}`);
+}
+
 // Reject DNS rebinding and cross-origin browser requests before either API or
 // static assets are served. SSH -L still works: the browser sees localhost.
 app.use("*", async (c, next) => {
-  checkLocalRequest(c.req.header("host"), c.req.header("origin"), process.env.DBSCOPE_DEV_ORIGIN);
+  checkLocalRequest(
+    c.req.header("host"),
+    c.req.header("origin"),
+    process.env.DBSCOPE_DEV_ORIGIN,
+    publicOrigin,
+  );
   await next();
 });
 

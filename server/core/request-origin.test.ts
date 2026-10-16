@@ -38,3 +38,56 @@ test("Vite origin is permitted only when explicitly configured", () => {
     checkLocalRequest("127.0.0.1:5274", "http://127.0.0.1:5273", "http://127.0.0.1:5273"),
   );
 });
+
+test("a configured public origin is served through a tunnel", () => {
+  const publicOrigin = "https://dbscope.example.com";
+
+  // The tunnel forwards the public Host, and may forward the service host.
+  assert.doesNotThrow(() =>
+    checkLocalRequest("dbscope.example.com", undefined, undefined, publicOrigin),
+  );
+  assert.doesNotThrow(() =>
+    checkLocalRequest("127.0.0.1:5274", undefined, undefined, publicOrigin),
+  );
+
+  // Browser POSTs carry the public Origin; every other site is still rejected.
+  assert.doesNotThrow(() =>
+    checkLocalRequest("dbscope.example.com", publicOrigin, undefined, publicOrigin),
+  );
+  for (const origin of [
+    "https://evil.example",
+    "https://dbscope.example.com.evil.example",
+    "http://dbscope.example.com",
+    "null",
+  ]) {
+    assert.throws(
+      () => checkLocalRequest("dbscope.example.com", origin, undefined, publicOrigin),
+      /Origin/,
+    );
+  }
+
+  // A lookalike Host is not the public host, and enabling the public URL does
+  // not let a public Origin ride along on a loopback request.
+  assert.throws(
+    () => checkLocalRequest("dbscope.example.com.evil.example", undefined, undefined, publicOrigin),
+    /loopback host/,
+  );
+  assert.throws(
+    () => checkLocalRequest("127.0.0.1:5274", publicOrigin, undefined, publicOrigin),
+    /Origin/,
+  );
+
+  // ssh -L keeps working while the public URL is enabled.
+  assert.doesNotThrow(() =>
+    checkLocalRequest("localhost:9999", "http://localhost:9999", undefined, publicOrigin),
+  );
+});
+
+test("a public origin that is not a bare origin opens nothing", () => {
+  for (const bad of ["dbscope.example.com", "https://", "https://dbscope.example.com/", "null"]) {
+    assert.throws(
+      () => checkLocalRequest("dbscope.example.com", undefined, undefined, bad),
+      /loopback host/,
+    );
+  }
+});

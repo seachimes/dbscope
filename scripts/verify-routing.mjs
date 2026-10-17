@@ -5,7 +5,7 @@ const base = process.env.BASE_URL ?? "http://127.0.0.1:5274";
 const browser = await launchChromium();
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 await page.goto(`${base}/queries`);
-await page.evaluate(() => localStorage.clear());
+await page.evaluate(() => (localStorage.clear(), sessionStorage.clear()));
 await page.reload();
 await page.waitForSelector(".connect-title");
 await page.fill("#sshHost", "127.0.0.1");

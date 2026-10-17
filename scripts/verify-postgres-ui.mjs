@@ -32,7 +32,7 @@ console.log("verifying the PostgreSQL UI against the fixture");
 try {
   step("connect");
   await page.goto(base);
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => (localStorage.clear(), sessionStorage.clear()));
   await page.reload();
   await page.selectOption(".engine-select", "postgres");
   await page.fill("#sshHost", "127.0.0.1");

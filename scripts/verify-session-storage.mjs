@@ -15,6 +15,21 @@ const check = (label, ok, detail = "") => {
   if (!ok) failures++;
   console.log(`  ${ok ? "✓" : "✗"} ${label}${ok || !detail ? "" : ` (${detail})`}`);
 };
+const engineOf = async (page) => (await page.locator(".rail-section").last().textContent()) ?? "";
+async function connect(page, engine) {
+  await page.selectOption(".engine-select", engine);
+  await page.fill("#sshHost", "127.0.0.1");
+  await page.fill("#sshPort", sshPort);
+  await page.fill("#sshUser", "appuser");
+  await page.fill("#sshKey", path.join(root, "fixture/ssh/id_ed25519"));
+  await page.fill("#dbHost", engine);
+  await page.fill("#dbPort", engine === "mysql" ? "3306" : "5432");
+  await page.fill("#dbUser", "appuser");
+  await page.fill("#dbPass", "apppass");
+  await page.fill("#dbName", "appdb");
+  await page.click("button[type=submit]");
+  await page.waitForSelector(".graph-svg", { timeout: 60000 });
+}
 const stored = (page) =>
   page.evaluate(() => ({
     session: sessionStorage.getItem("dbscope.session"),
@@ -31,16 +46,7 @@ try {
     (await stored(page)).local === null,
   );
 
-  await page.fill("#sshHost", "127.0.0.1");
-  await page.fill("#sshPort", sshPort);
-  await page.fill("#sshUser", "appuser");
-  await page.fill("#sshKey", path.join(root, "fixture/ssh/id_ed25519"));
-  await page.fill("#dbHost", "mysql");
-  await page.fill("#dbUser", "appuser");
-  await page.fill("#dbPass", "apppass");
-  await page.fill("#dbName", "appdb");
-  await page.click("button[type=submit]");
-  await page.waitForSelector(".graph-svg", { timeout: 45000 });
+  await connect(page, "mysql");
 
   const afterConnect = await stored(page);
   check("connect stores the id in sessionStorage", Boolean(afterConnect.session));
@@ -58,6 +64,22 @@ try {
   await other.goto(base);
   await other.waitForSelector(".connect-title");
   check("a new tab starts at the connect form", (await stored(other)).session === null);
+
+  await connect(other, "postgres");
+  const second = await stored(other);
+  check(
+    "the second tab gets its own session",
+    Boolean(second.session) && second.session !== afterConnect.session,
+  );
+  check("the second tab is on PostgreSQL", (await engineOf(other)).includes("pg_stat"));
+
+  await page.reload();
+  await page.waitForSelector(".graph-svg", { timeout: 45000 });
+  check(
+    "the first tab still has its own session",
+    (await stored(page)).session === afterConnect.session,
+  );
+  check("the first tab is still on MySQL", (await engineOf(page)).includes("perf_schema"));
 } finally {
   await browser.close();
 }

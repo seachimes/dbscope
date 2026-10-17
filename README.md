@@ -131,6 +131,7 @@ To check the UI itself in a real browser:
 
 ```bash
 node scripts/verify-ui.mjs      # screenshots land in shots/
+node scripts/verify-session-storage.mjs  # one session per tab, e.g. two databases side by side
 ```
 
 Tear it down with `pnpm fixture:down`.
@@ -148,7 +149,7 @@ This tool can point at a live database, so its write surface is deliberately nar
 - Index creation and dropping are the only writes, and an index that enforces a data guarantee — `PRIMARY KEY`, `UNIQUE`, or one backing a foreign key — cannot be dropped on either engine. Destructive UI actions require confirmation.
 - PostgreSQL index DDL uses `CONCURRENTLY`, so building an index does not block an existing workload.
 - Data Viewer filters are structured: columns/operators are allowlisted and values are always bound parameters. Arbitrary WHERE SQL is never accepted.
-- Passwords, SSH keys, and passphrases are kept in server memory only for the session, never in the browser or on disk. Idle sessions close after two hours. Key-file paths are limited to `~/.ssh`.
+- Passwords, SSH keys, and passphrases are kept in server memory only for the session, never in the browser or on disk. The browser keeps the session id in `sessionStorage`, so it lasts for one tab and survives a reload. Idle sessions close after two hours. Key-file paths are limited to `~/.ssh`.
 - SSH host keys are verified against `~/.ssh/known_hosts` (or `DBSCOPE_KNOWN_HOSTS`), and an unknown or changed key is refused. `@cert-authority`, `@revoked`, and wildcard entries are not interpreted, so such hosts read as unknown. Skipping the check is an explicit opt-in.
 - The connection pool is capped at 4 connections, so DBSCOPE cannot itself become significant load.
 - Row counts are planner estimates — an exact `COUNT(*)` on a large table is itself the kind of stall this tool exists to prevent. Anything approximate is labeled.

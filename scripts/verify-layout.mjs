@@ -35,6 +35,7 @@ for (const theme of ["light", "dark"]) {
   await page.goto(base);
   await page.evaluate((theme) => {
     localStorage.clear();
+    sessionStorage.clear();
     localStorage.setItem("dbscope.locale", "ja");
     localStorage.setItem("dbscope.theme", theme);
   }, theme);

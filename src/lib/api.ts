@@ -12,18 +12,18 @@ import type {
   SessionInfo,
 } from "#shared/types.ts";
 
-/** Survives reloads so refreshing the diagnostic view does not drop the connection. */
+/**
+ * Per tab: survives a reload, but closing the tab forgets the bearer id instead
+ * of leaving it readable by every later visit to this origin.
+ */
 const SESSION_KEY = "dbscope.session";
-const LEGACY_SESSION_KEY = "sonde.session";
 
-// Preserve active sessions across the product rename.
-let sessionId: string | null =
-  localStorage.getItem(SESSION_KEY) ?? localStorage.getItem(LEGACY_SESSION_KEY);
+// Ids from builds that kept them in localStorage must not outlive the upgrade.
+localStorage.removeItem(SESSION_KEY);
+localStorage.removeItem("sonde.session");
+
+let sessionId: string | null = sessionStorage.getItem(SESSION_KEY);
 let onSessionExpired: (() => void) | null = null;
-if (sessionId && !localStorage.getItem(SESSION_KEY)) {
-  localStorage.setItem(SESSION_KEY, sessionId);
-  localStorage.removeItem(LEGACY_SESSION_KEY);
-}
 
 export function getSessionId(): string | null {
   return sessionId;
@@ -31,8 +31,8 @@ export function getSessionId(): string | null {
 
 export function setSessionId(id: string | null): void {
   sessionId = id;
-  if (id) localStorage.setItem(SESSION_KEY, id);
-  else localStorage.removeItem(SESSION_KEY);
+  if (id) sessionStorage.setItem(SESSION_KEY, id);
+  else sessionStorage.removeItem(SESSION_KEY);
 }
 
 export function setSessionExpiredHandler(handler: (() => void) | null): void {

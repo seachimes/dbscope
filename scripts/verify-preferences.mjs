@@ -5,7 +5,7 @@ const browser = await launchChromium();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 await page.goto(process.env.BASE_URL ?? "http://127.0.0.1:5274");
 await page.evaluate(() => {
-  localStorage.removeItem("dbscope.session");
+  sessionStorage.removeItem("dbscope.session");
   localStorage.setItem("dbscope.locale", "ja");
   localStorage.setItem("dbscope.theme", "light");
 });

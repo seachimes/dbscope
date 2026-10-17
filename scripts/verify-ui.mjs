@@ -44,7 +44,7 @@ console.log("verifying UI against the fixture");
 await step("load", async () => {
   await page.goto(base, { waitUntil: "networkidle" });
   // Start from a clean slate so the connect form is always exercised.
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => (localStorage.clear(), sessionStorage.clear()));
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForSelector(".connect-title");
   await page.screenshot({ path: path.join(shots, "01-connect.png") });
@@ -127,7 +127,7 @@ await step("cleanup-index", async () => {
   // Leave the fixture as we found it so the script is re-runnable. Only the
   // index this run created is dropped, and only if it is actually there.
   const res = await page.evaluate(async () => {
-    const id = localStorage.getItem("dbscope.session");
+    const id = sessionStorage.getItem("dbscope.session");
     const headers = { "x-dbscope-session": id ?? "" };
     const indexes = await (await fetch("/api/tables/posts/indexes", { headers })).json();
     const mine = indexes.find((i) => i.name === "idx_user_id_created_at");

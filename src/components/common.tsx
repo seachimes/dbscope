@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import { useRef, useState, type ButtonHTMLAttributes, type RefObject } from "react";
 import type { Issue, Severity } from "#shared/types.ts";
 import { usePreferences } from "../lib/preferences.tsx";
 import { localizedIssue } from "../lib/localize.ts";
@@ -34,15 +34,14 @@ export function SeverityTag({ severity }: { severity: Severity }) {
 
 export function IssueRow({
   issue,
-  onApply,
   onOpenTable,
 }: {
   issue: Issue;
-  onApply?: (ddl: string) => void;
   onOpenTable?: (table: string) => void;
 }) {
   const { t, locale } = usePreferences();
   const displayIssue = localizedIssue(issue, locale);
+  const ddl = useRef<HTMLElement>(null);
   return (
     <div className={`issue issue-${issue.severity}`}>
       <span className="issue-bar" />
@@ -54,12 +53,10 @@ export function IssueRow({
         <div className="issue-detail">{displayIssue.detail}</div>
         {issue.suggestion ? (
           <div className="issue-fix">
-            <code className="issue-ddl">{issue.suggestion}</code>
-            {onApply ? (
-              <button className="btn btn-sm" onClick={() => onApply(issue.suggestion!)}>
-                {t("apply")}
-              </button>
-            ) : null}
+            <code ref={ddl} className="issue-ddl">
+              {issue.suggestion}
+            </code>
+            <CopyButton text={issue.suggestion} source={ddl} />
           </div>
         ) : null}
         {issue.table && onOpenTable ? (
@@ -138,5 +135,54 @@ export function Spinner({ label }: { label?: string }) {
       <span className="spinner" aria-hidden="true" />
       {label ? <span className="dim small">{label}</span> : null}
     </span>
+  );
+}
+
+/**
+ * DDL has to be copied into the project's schema file as well as run here, so
+ * every statement DBSCOPE shows is one click from the clipboard.
+ */
+export function CopyButton({
+  text,
+  source,
+}: {
+  text: string;
+  source: RefObject<HTMLElement | null>;
+}) {
+  const { t } = usePreferences();
+  const [copied, setCopied] = useState<{ text: string; ok: boolean } | null>(null);
+  const state = copied?.text === text ? copied.ok : null;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied({ text, ok: true });
+    } catch {
+      // The Clipboard API needs a secure context, which a plain-http public
+      // origin is not. Selecting the text still leaves Ctrl+C one key away.
+      const range = document.createRange();
+      range.selectNodeContents(source.current!);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+      setCopied({ text, ok: false });
+    }
+  }
+
+  return (
+    <button type="button" className="btn btn-sm ddl-copy" onClick={() => void copy()}>
+      {state === true ? t("copied") : state === false ? t("copySelected") : t("copy")}
+    </button>
+  );
+}
+
+export function DdlBlock({ ddl, className }: { ddl: string; className?: string }) {
+  const pre = useRef<HTMLPreElement>(null);
+  return (
+    <div className={className ? `ddl-block ${className}` : "ddl-block"}>
+      <pre ref={pre} className="raw">
+        {ddl}
+      </pre>
+      <CopyButton text={ddl} source={pre} />
+    </div>
   );
 }

@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
-import type { DataFilter, DataPage, FilterOperator, TableDetailPayload } from "#shared/types.ts";
+import type {
+  DataFilter,
+  DataPage,
+  DatabaseEngine,
+  FilterOperator,
+  TableDetailPayload,
+} from "#shared/types.ts";
 import { api } from "../lib/api.ts";
-import { BusyButton, Empty, IssueRow, Panel, Stat } from "../components/common.tsx";
+import { BusyButton, DdlBlock, Empty, IssueRow, Panel, Stat } from "../components/common.tsx";
 import { bytes, cell, compact, heatColor, ms, n } from "../lib/format.ts";
 import { QueryList } from "./Queries.tsx";
 import { usePreferences } from "../lib/preferences.tsx";
@@ -10,9 +16,11 @@ type Tab = "data" | "schema" | "indexes" | "queries";
 
 export function TableDetail({
   table,
+  engine,
   onExplain,
 }: {
   table: string;
+  engine: DatabaseEngine;
   onExplain: (sql: string) => void;
 }) {
   const { t } = usePreferences();
@@ -116,7 +124,7 @@ export function TableDetail({
 
       {tab === "data" ? <DataTab table={detail.name} /> : null}
       {tab === "schema" ? <SchemaTab detail={detail} /> : null}
-      {tab === "indexes" ? <IndexTab detail={detail} onChanged={load} /> : null}
+      {tab === "indexes" ? <IndexTab detail={detail} engine={engine} onChanged={load} /> : null}
       {tab === "queries" ? (
         detail.queries.length === 0 ? (
           <Empty
@@ -411,13 +419,22 @@ function SchemaTab({ detail }: { detail: TableDetailPayload }) {
   );
 }
 
-function IndexTab({ detail, onChanged }: { detail: TableDetailPayload; onChanged: () => void }) {
+function IndexTab({
+  detail,
+  engine,
+  onChanged,
+}: {
+  detail: TableDetailPayload;
+  engine: DatabaseEngine;
+  onChanged: () => void;
+}) {
   const { t } = usePreferences();
   const [selected, setSelected] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [unique, setUnique] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [executed, setExecuted] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const toggle = (col: string) =>
@@ -437,6 +454,7 @@ function IndexTab({ detail, onChanged }: { detail: TableDetailPayload; onChanged
         unique,
       });
       setMessage(res.message);
+      setExecuted(res.ddl);
       setSelected([]);
       setName("");
       onChanged();
@@ -455,6 +473,7 @@ function IndexTab({ detail, onChanged }: { detail: TableDetailPayload; onChanged
     try {
       const res = await api.dropIndex(detail.name, indexName);
       setMessage(res.message);
+      setExecuted(res.ddl);
       onChanged();
     } catch (err) {
       setError((err as Error).message);
@@ -465,9 +484,7 @@ function IndexTab({ detail, onChanged }: { detail: TableDetailPayload; onChanged
 
   const preview =
     selected.length > 0
-      ? `ALTER TABLE \`${detail.name}\` ADD ${unique ? "UNIQUE " : ""}INDEX \`${
-          name.trim() || `idx_${selected.join("_")}`
-        }\` (${selected.map((c) => `\`${c}\``).join(", ")});`
+      ? indexDdlPreview(engine, detail.name, selected, name.trim(), unique)
       : null;
 
   return (
@@ -556,7 +573,9 @@ function IndexTab({ detail, onChanged }: { detail: TableDetailPayload; onChanged
               id="idxname"
               className="inline-input"
               value={name}
-              placeholder={selected.length ? `idx_${selected.join("_")}` : "idx_…"}
+              placeholder={
+                selected.length ? defaultIndexName(engine, detail.name, selected) : "idx_…"
+              }
               onChange={(e) => setName(e.target.value)}
             />
           </div>
@@ -566,7 +585,7 @@ function IndexTab({ detail, onChanged }: { detail: TableDetailPayload; onChanged
           </label>
         </div>
 
-        {preview ? <pre className="raw mt">{preview}</pre> : null}
+        {preview ? <DdlBlock className="mt" ddl={preview} /> : null}
 
         <div className="btn-row">
           <BusyButton
@@ -589,8 +608,44 @@ function IndexTab({ detail, onChanged }: { detail: TableDetailPayload; onChanged
             {message}
           </div>
         ) : null}
+        {executed ? (
+          <div className="field mt">
+            <label>{t("executedDdl")}</label>
+            <DdlBlock ddl={executed} />
+          </div>
+        ) : null}
         {error ? <div className="error-box">{error}</div> : null}
       </Panel>
     </div>
   );
+}
+
+function defaultIndexName(engine: DatabaseEngine, table: string, columns: string[]): string {
+  // PostgreSQL index names are schema-wide, so the table is part of the name.
+  return engine === "postgres"
+    ? `idx_${table}_${columns.join("_")}`
+    : `idx_${columns.join("_")}`.slice(0, 60);
+}
+
+/**
+ * The statement the server will run, mirroring the adapters' default names.
+ * The server's own DDL is shown once it has run, so a name the server shortens
+ * (over PostgreSQL's 63-byte limit) is corrected there.
+ */
+function indexDdlPreview(
+  engine: DatabaseEngine,
+  table: string,
+  columns: string[],
+  name: string,
+  unique: boolean,
+): string {
+  const uniqueWord = unique ? "UNIQUE " : "";
+  if (engine === "postgres") {
+    const q = (id: string) => `"${id.replace(/"/g, '""')}"`;
+    const index = name || defaultIndexName(engine, table, columns);
+    return `CREATE ${uniqueWord}INDEX CONCURRENTLY ${q(index)} ON ${q("public")}.${q(table)} (${columns.map(q).join(", ")});`;
+  }
+  const q = (id: string) => `\`${id.replace(/`/g, "``")}\``;
+  const index = name || defaultIndexName(engine, table, columns);
+  return `ALTER TABLE ${q(table)} ADD ${uniqueWord}INDEX ${q(index)} (${columns.map(q).join(", ")});`;
 }

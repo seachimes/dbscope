@@ -132,6 +132,7 @@ To check the UI itself in a real browser:
 ```bash
 node scripts/verify-ui.mjs      # screenshots land in shots/
 node scripts/verify-session-storage.mjs  # one session per tab, e.g. two databases side by side
+node scripts/verify-index-ddl.mjs        # shown index DDL is what runs, and it copies
 ```
 
 Tear it down with `pnpm fixture:down`.

@@ -34,7 +34,7 @@ const observedPool = {
     const client = await pgPool.connect();
     return {
       query: (...args: Parameters<typeof client.query>) => {
-        if (typeof args[0] === "string" && args[0].startsWith("SELECT * FROM")) {
+        if (typeof args[0] === "string" && args[0].includes(`FROM "public"."${table}"`)) {
           selectedSql = args[0];
         }
         return client.query(...args);

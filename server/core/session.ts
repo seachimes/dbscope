@@ -16,6 +16,9 @@ export interface Session {
 
 const sessions = new Map<string, Session>();
 const IDLE_MS = 2 * 60 * 60 * 1000;
+// Reconnecting without pressing Disconnect leaves the old session behind until
+// it idles out. Each one holds a pool and possibly an SSH link, so bound them.
+const MAX_SESSIONS = 8;
 
 export async function createSession(req: ConnectRequest): Promise<SessionInfo> {
   const adapter = getAdapter(req.engine);
@@ -41,6 +44,7 @@ export async function createSession(req: ConnectRequest): Promise<SessionInfo> {
       performanceSchema: probe.queryStats,
       connectedAt: new Date().toISOString(),
     };
+    await evictOldest(MAX_SESSIONS - 1);
     sessions.set(id, { id, pool, adapter, tunnel, info, request: req, lastUsed: Date.now() });
     return info;
   } catch (err) {
@@ -65,6 +69,14 @@ export async function closeSession(id: string): Promise<void> {
   await session.adapter.close(session.pool).catch(() => {});
   await session.tunnel?.close().catch(() => {});
 }
+
+async function evictOldest(keep: number): Promise<void> {
+  const oldest = [...sessions.values()].sort((a, b) => a.lastUsed - b.lastUsed);
+  await Promise.all(
+    oldest.slice(0, Math.max(0, oldest.length - keep)).map((s) => closeSession(s.id)),
+  );
+}
+
 export function currentSession(id: string | undefined): SessionInfo {
   return getSession(id).info;
 }

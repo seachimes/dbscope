@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import type { Pool } from "pg";
-import { dropIndex, indexName } from "./data.ts";
+import { dropIndex, indexName, previewColumn } from "./data.ts";
 
 test("uses the requested name when it fits", () => {
   assert.equal(
@@ -72,4 +72,20 @@ test("dropIndex still allows an ordinary index", async () => {
   const result = await dropIndex(pool, "public", "table", "table_idx");
   assert.equal(result.ok, true);
   assert.equal(queries[1], 'DROP INDEX CONCURRENTLY "public"."table_idx"');
+});
+
+test("previewColumn truncates text and JSON and sizes binary values", () => {
+  const column = (name: string, typeName: string, category: string) => ({
+    name,
+    typeSchema: "pg_catalog",
+    typeName,
+    category,
+  });
+  assert.equal(previewColumn(column("body", "text", "S")), 'left("body", 200) AS "body"');
+  assert.equal(previewColumn(column("meta", "jsonb", "U")), 'left("meta"::text, 200) AS "meta"');
+  assert.equal(
+    previewColumn(column("avatar", "bytea", "U")),
+    `'<binary ' || octet_length("avatar") || ' B>' AS "avatar"`,
+  );
+  assert.equal(previewColumn(column("id", "int8", "N")), '"id"');
 });

@@ -35,6 +35,14 @@ import type {
  */
 export type DatabasePool = MySqlPool | PgPool;
 
+/**
+ * The Data Viewer shows at most 160 characters of a cell and only the size of a
+ * binary value. Truncating in SQL keeps a page of LONGTEXT/BLOB rows from ever
+ * being materialised in the process — a Buffer serialised to JSON becomes an
+ * array of numbers several times its own size.
+ */
+export const CELL_PREVIEW_CHARS = 200;
+
 export interface PageOptions {
   page?: number;
   pageSize?: number;

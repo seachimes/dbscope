@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Pool } from "pg";
 import type { CreateIndexRequest, DataPage, IndexMutationResult } from "#shared/types.ts";
-import type { PageOptions } from "../adapter.ts";
+import { CELL_PREVIEW_CHARS, type PageOptions } from "../adapter.ts";
 import { qualify, quoteIdent, toNumber } from "./sql.ts";
 
 const MAX_PAGE_SIZE = 200;
@@ -50,6 +50,25 @@ async function columnNames(pool: Pool, schema: string, table: string): Promise<s
 
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+/** Select a preview of each column; see CELL_PREVIEW_CHARS. */
+export function previewColumn(column: {
+  name: string;
+  typeSchema: string;
+  typeName: string;
+  category: string;
+}): string {
+  const ident = quoteIdent(column.name);
+  const builtin = column.typeSchema === "pg_catalog";
+  if (builtin && column.typeName === "bytea") {
+    return `'<binary ' || octet_length(${ident}) || ' B>' AS ${ident}`;
+  }
+  if (builtin && ["json", "jsonb", "xml"].includes(column.typeName)) {
+    return `left(${ident}::text, ${CELL_PREVIEW_CHARS}) AS ${ident}`;
+  }
+  if (column.category === "S") return `left(${ident}, ${CELL_PREVIEW_CHARS}) AS ${ident}`;
+  return ident;
 }
 
 /**
@@ -118,7 +137,10 @@ export async function fetchPage(
   }
 
   const orderBy = opts.orderBy && columns.includes(opts.orderBy) ? opts.orderBy : null;
-  const order = orderBy ? ` ORDER BY ${quoteIdent(orderBy)} ${orderDir}` : "";
+  // Qualified, because a bare name would resolve to the truncated preview alias.
+  const order = orderBy
+    ? ` ORDER BY ${qualify(schema, table)}.${quoteIdent(orderBy)} ${orderDir}`
+    : "";
 
   values.push(pageSize, (page - 1) * pageSize);
   const limitParam = `$${values.length - 1}`;
@@ -130,7 +152,7 @@ export async function fetchPage(
     await client.query("BEGIN READ ONLY");
     await client.query("SET LOCAL statement_timeout = '3000ms'");
     const result = await client.query(
-      `SELECT * FROM ${qualify(schema, table)}${where}${order} LIMIT ${limitParam} OFFSET ${offsetParam}`,
+      `SELECT ${metadata.map(previewColumn).join(", ")} FROM ${qualify(schema, table)}${where}${order} LIMIT ${limitParam} OFFSET ${offsetParam}`,
       values,
     );
     const estimate = await client.query(

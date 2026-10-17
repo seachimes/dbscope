@@ -198,7 +198,7 @@ export function suggestIndexes(
         ? `The plan reads ~${fmt(step.rows ?? 0)} rows sequentially and then sorts them; an index in this order can serve both.`
         : `The plan reads ~${fmt(step.rows ?? 0)} rows sequentially; these columns appear in the WHERE clause.`,
       // CONCURRENTLY keeps an existing workload running while the index builds.
-      ddl: indexDdlFor(SCHEMA).create(table, columns),
+      ...indexDdlFor(SCHEMA).create(table, columns),
       confidence: equality.length > 0 ? "high" : "medium",
       tradeoffs: [
         "Adds storage and work to INSERT/UPDATE/DELETE.",

@@ -171,6 +171,19 @@ a {
   letter-spacing: -0.02em;
 }
 
+.brand-version {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-faint);
+  align-self: center;
+}
+
 /* The wordmark's own heat dot: the tool announces its metaphor immediately. */
 .brand-dot {
   width: 7px;
@@ -482,18 +495,59 @@ a {
 }
 
 .ddl-block {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.ddl-block pre.raw {
-  flex: 1;
+  display: grid;
+  gap: 6px;
   min-width: 0;
 }
 
+.issue-ddl {
+  margin-top: 7px;
+}
+
+.ddl-label {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.ddl-box {
+  position: relative;
+  min-width: 0;
+}
+
+.ddl-box pre.raw {
+  padding-right: 40px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .ddl-copy {
-  flex-shrink: 0;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.ddl-copy:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.ddl-copy:focus-visible {
+  outline: 2px solid var(--t0);
+  outline-offset: 1px;
+}
+
+.ddl-copy[data-state="copied"] {
+  color: var(--ok);
 }
 
 .btn-row {
@@ -800,19 +854,6 @@ a {
   gap: 7px;
   align-items: center;
   flex-wrap: wrap;
-}
-
-.issue-ddl {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  background: var(--ink);
-  border: 1px solid var(--line);
-  padding: 4px 7px;
-  border-radius: var(--r);
-  color: var(--t1);
-  overflow-x: auto;
-  white-space: nowrap;
-  max-width: 100%;
 }
 
 .sev-tag {
@@ -1407,7 +1448,8 @@ pre.raw {
     border-bottom: none;
     border-right: 1px solid var(--line);
   }
-  .brand-sub {
+  .brand-sub,
+  .rail .brand-version {
     display: none;
   }
   .nav {

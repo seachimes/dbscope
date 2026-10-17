@@ -106,6 +106,9 @@ export function AppShell() {
           <div className="brand-mark">
             <span className="brand-name">DBSCOPE</span>
             <span className="brand-dot" />
+            <span className="brand-version" title={__DBSCOPE_VERSION__}>
+              {__DBSCOPE_VERSION__}
+            </span>
           </div>
         </Link>
         <div className="nav">

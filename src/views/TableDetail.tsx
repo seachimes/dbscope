@@ -4,6 +4,7 @@ import type {
   DataPage,
   DatabaseEngine,
   FilterOperator,
+  IndexMutationResult,
   TableDetailPayload,
 } from "#shared/types.ts";
 import { api } from "../lib/api.ts";
@@ -434,7 +435,7 @@ function IndexTab({
   const [unique, setUnique] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [executed, setExecuted] = useState<string | null>(null);
+  const [executed, setExecuted] = useState<Statements | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const toggle = (col: string) =>
@@ -454,7 +455,7 @@ function IndexTab({
         unique,
       });
       setMessage(res.message);
-      setExecuted(res.ddl);
+      setExecuted(res);
       setSelected([]);
       setName("");
       onChanged();
@@ -473,7 +474,7 @@ function IndexTab({
     try {
       const res = await api.dropIndex(detail.name, indexName);
       setMessage(res.message);
-      setExecuted(res.ddl);
+      setExecuted(res);
       onChanged();
     } catch (err) {
       setError((err as Error).message);
@@ -585,7 +586,7 @@ function IndexTab({
           </label>
         </div>
 
-        {preview ? <DdlBlock className="mt" ddl={preview} /> : null}
+        {preview ? <DdlBlock className="mt" ddl={preview.ddl} fileDdl={preview.fileDdl} /> : null}
 
         <div className="btn-row">
           <BusyButton
@@ -611,7 +612,7 @@ function IndexTab({
         {executed ? (
           <div className="field mt">
             <label>{t("executedDdl")}</label>
-            <DdlBlock ddl={executed} />
+            <DdlBlock ddl={executed.ddl} fileDdl={executed.fileDdl} />
           </div>
         ) : null}
         {error ? <div className="error-box">{error}</div> : null}
@@ -628,9 +629,9 @@ function defaultIndexName(engine: DatabaseEngine, table: string, columns: string
 }
 
 /**
- * The statement the server will run, mirroring the adapters' default names.
- * The server's own DDL is shown once it has run, so a name the server shortens
- * (over PostgreSQL's 63-byte limit) is corrected there.
+ * The statements the server will return, mirroring the adapters' default
+ * names. The server's own DDL is shown once it has run, so a name the server
+ * shortens (over PostgreSQL's 63-byte limit) is corrected there.
  */
 function indexDdlPreview(
   engine: DatabaseEngine,
@@ -638,14 +639,23 @@ function indexDdlPreview(
   columns: string[],
   name: string,
   unique: boolean,
-): string {
+): Statements {
   const uniqueWord = unique ? "UNIQUE " : "";
+  const index = name || defaultIndexName(engine, table, columns);
   if (engine === "postgres") {
     const q = (id: string) => `"${id.replace(/"/g, '""')}"`;
-    const index = name || defaultIndexName(engine, table, columns);
-    return `CREATE ${uniqueWord}INDEX CONCURRENTLY ${q(index)} ON ${q("public")}.${q(table)} (${columns.map(q).join(", ")});`;
+    const cols = columns.map(q).join(", ");
+    return {
+      ddl: `CREATE ${uniqueWord}INDEX CONCURRENTLY ${q(index)} ON ${q("public")}.${q(table)} (${cols});`,
+      fileDdl: `CREATE ${uniqueWord}INDEX ${q(index)} ON ${q(table)} (${cols});`,
+    };
   }
   const q = (id: string) => `\`${id.replace(/`/g, "``")}\``;
-  const index = name || defaultIndexName(engine, table, columns);
-  return `ALTER TABLE ${q(table)} ADD ${uniqueWord}INDEX ${q(index)} (${columns.map(q).join(", ")});`;
+  const cols = columns.map(q).join(", ");
+  return {
+    ddl: `ALTER TABLE ${q(table)} ADD ${uniqueWord}INDEX ${q(index)} (${cols});`,
+    fileDdl: `CREATE ${uniqueWord}INDEX ${q(index)} ON ${q(table)} (${cols});`,
+  };
 }
+
+type Statements = Pick<IndexMutationResult, "ddl" | "fileDdl">;

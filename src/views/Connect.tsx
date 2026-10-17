@@ -114,6 +114,9 @@ export function Connect({ onConnected }: { onConnected: (info: SessionInfo) => v
           <h1 className="connect-title">
             DBSCOPE
             <span className="brand-dot" />
+            <span className="brand-version" title={__DBSCOPE_VERSION__}>
+              {__DBSCOPE_VERSION__}
+            </span>
           </h1>
           <p className="connect-tag">{t("connectTag")}</p>
         </header>

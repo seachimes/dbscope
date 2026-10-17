@@ -41,7 +41,6 @@ export function IssueRow({
 }) {
   const { t, locale } = usePreferences();
   const displayIssue = localizedIssue(issue, locale);
-  const ddl = useRef<HTMLElement>(null);
   return (
     <div className={`issue issue-${issue.severity}`}>
       <span className="issue-bar" />
@@ -52,12 +51,7 @@ export function IssueRow({
         </div>
         <div className="issue-detail">{displayIssue.detail}</div>
         {issue.suggestion ? (
-          <div className="issue-fix">
-            <code ref={ddl} className="issue-ddl">
-              {issue.suggestion}
-            </code>
-            <CopyButton text={issue.suggestion} source={ddl} />
-          </div>
+          <DdlBlock className="issue-ddl" ddl={issue.suggestion} fileDdl={issue.fileSuggestion} />
         ) : null}
         {issue.table && onOpenTable ? (
           <div className="issue-fix">
@@ -139,19 +133,14 @@ export function Spinner({ label }: { label?: string }) {
 }
 
 /**
- * DDL has to be copied into the project's schema file as well as run here, so
+ * DDL has to be copied into the project's own SQL files as well as run here, so
  * every statement DBSCOPE shows is one click from the clipboard.
  */
-export function CopyButton({
-  text,
-  source,
-}: {
-  text: string;
-  source: RefObject<HTMLElement | null>;
-}) {
+function CopyButton({ text, source }: { text: string; source: RefObject<HTMLElement | null> }) {
   const { t } = usePreferences();
   const [copied, setCopied] = useState<{ text: string; ok: boolean } | null>(null);
   const state = copied?.text === text ? copied.ok : null;
+  const label = state === true ? t("copied") : state === false ? t("copySelected") : t("copy");
 
   async function copy() {
     try {
@@ -169,20 +158,67 @@ export function CopyButton({
   }
 
   return (
-    <button type="button" className="btn btn-sm ddl-copy" onClick={() => void copy()}>
-      {state === true ? t("copied") : state === false ? t("copySelected") : t("copy")}
+    <button
+      type="button"
+      className="ddl-copy"
+      aria-label={label}
+      title={label}
+      data-state={state === true ? "copied" : undefined}
+      onClick={() => void copy()}
+    >
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        {state === true ? (
+          <path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        ) : (
+          <g fill="none" stroke="currentColor" strokeWidth="1.3">
+            <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+            <path d="M10.5 3.5v-.5A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5" />
+          </g>
+        )}
+      </svg>
     </button>
   );
 }
 
-export function DdlBlock({ ddl, className }: { ddl: string; className?: string }) {
+function CodeBox({ text, kind }: { text: string; kind: "run" | "file" }) {
   const pre = useRef<HTMLPreElement>(null);
   return (
-    <div className={className ? `ddl-block ${className}` : "ddl-block"}>
-      <pre ref={pre} className="raw">
-        {ddl}
+    <div className="ddl-box">
+      <pre ref={pre} className="raw" data-kind={kind}>
+        {text}
       </pre>
-      <CopyButton text={ddl} source={pre} />
+      <CopyButton text={text} source={pre} />
+    </div>
+  );
+}
+
+/**
+ * The statement DBSCOPE runs, and the same change as plain CREATE/DROP INDEX
+ * for the project's schema or migration files.
+ */
+export function DdlBlock({
+  ddl,
+  fileDdl,
+  className,
+}: {
+  ddl: string;
+  fileDdl?: string | undefined;
+  className?: string | undefined;
+}) {
+  const { t } = usePreferences();
+  if (!fileDdl || fileDdl === ddl) {
+    return (
+      <div className={className ? `ddl-block ${className}` : "ddl-block"}>
+        <CodeBox text={ddl} kind="run" />
+      </div>
+    );
+  }
+  return (
+    <div className={className ? `ddl-block ${className}` : "ddl-block"}>
+      <div className="ddl-label">{t("ddlForFile")}</div>
+      <CodeBox text={fileDdl} kind="file" />
+      <div className="ddl-label">{t("ddlRunHere")}</div>
+      <CodeBox text={ddl} kind="run" />
     </div>
   );
 }

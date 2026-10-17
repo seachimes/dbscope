@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { Pool } from "pg";
 import type { CreateIndexRequest, DataPage, IndexMutationResult } from "#shared/types.ts";
 import { CELL_PREVIEW_CHARS, type PageOptions } from "../adapter.ts";
-import type { IndexDdl } from "../../core/rules.ts";
+import type { IndexDdl, Statements } from "../../core/rules.ts";
 import { qualify, quoteIdent, toNumber } from "./sql.ts";
 
 const MAX_PAGE_SIZE = 200;
@@ -200,18 +200,33 @@ export function indexName(request: CreateIndexRequest): string {
   return head + suffix;
 }
 
-export function createIndexDdl(schema: string, request: CreateIndexRequest): string {
-  return `CREATE ${request.unique ? "UNIQUE " : ""}INDEX CONCURRENTLY ${quoteIdent(indexName(request))} ON ${qualify(schema, request.table)} (${request.columns.map(quoteIdent).join(", ")})`;
+/**
+ * CONCURRENTLY keeps a live workload running here, but it cannot run inside a
+ * transaction, which is how most migration tools apply a file. The file form
+ * therefore drops it, along with the schema qualifier the file's own
+ * search_path supplies.
+ */
+export function createIndexDdl(schema: string, request: CreateIndexRequest): Statements {
+  const unique = request.unique ? "UNIQUE " : "";
+  const name = quoteIdent(indexName(request));
+  const columns = request.columns.map(quoteIdent).join(", ");
+  return {
+    ddl: `CREATE ${unique}INDEX CONCURRENTLY ${name} ON ${qualify(schema, request.table)} (${columns});`,
+    fileDdl: `CREATE ${unique}INDEX ${name} ON ${quoteIdent(request.table)} (${columns});`,
+  };
 }
 
-export function dropIndexDdl(schema: string, name: string): string {
-  return `DROP INDEX CONCURRENTLY ${qualify(schema, name)}`;
+export function dropIndexDdl(schema: string, name: string): Statements {
+  return {
+    ddl: `DROP INDEX CONCURRENTLY ${qualify(schema, name)};`,
+    fileDdl: `DROP INDEX ${quoteIdent(name)};`,
+  };
 }
 
 export function indexDdlFor(schema: string): IndexDdl {
   return {
-    create: (table, columns) => `${createIndexDdl(schema, { table, columns })};`,
-    drop: (_table, index) => `${dropIndexDdl(schema, index)};`,
+    create: (table, columns) => createIndexDdl(schema, { table, columns }),
+    drop: (_table, index) => dropIndexDdl(schema, index),
   };
 }
 
@@ -233,11 +248,11 @@ export async function createIndex(
   }
 
   const name = indexName(request);
-  const ddl = createIndexDdl(schema, request);
+  const statements = createIndexDdl(schema, request);
 
   const started = performance.now();
   try {
-    await pool.query(ddl);
+    await pool.query(statements.ddl.slice(0, -1));
   } catch (err) {
     throw new Error(
       `${(err as Error).message}. A cancelled CREATE INDEX CONCURRENTLY can leave an INVALID index named ${name}; drop it before retrying.`,
@@ -246,7 +261,7 @@ export async function createIndex(
 
   return {
     ok: true,
-    ddl: `${ddl};`,
+    ...statements,
     elapsedMs: Math.round(performance.now() - started),
     message: `Created ${name} on ${request.table}`,
   };
@@ -289,13 +304,13 @@ export async function dropIndex(
     throw new Error(`${name} enforces uniqueness; refusing to drop a UNIQUE index`);
   }
 
-  const ddl = dropIndexDdl(schema, name);
+  const statements = dropIndexDdl(schema, name);
   const started = performance.now();
-  await pool.query(ddl);
+  await pool.query(statements.ddl.slice(0, -1));
 
   return {
     ok: true,
-    ddl: `${ddl};`,
+    ...statements,
     elapsedMs: Math.round(performance.now() - started),
     message: `Dropped ${name}`,
   };

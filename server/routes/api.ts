@@ -187,6 +187,7 @@ api.post("/apply-and-compare", async (c) => {
     before,
     after,
     ddl: result.ddl,
+    fileDdl: result.fileDdl,
     verdict: {
       rowsBefore,
       rowsAfter,

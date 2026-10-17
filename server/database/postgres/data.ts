@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Pool } from "pg";
 import type { CreateIndexRequest, DataPage, IndexMutationResult } from "#shared/types.ts";
 import { CELL_PREVIEW_CHARS, type PageOptions } from "../adapter.ts";
+import type { IndexDdl } from "../../core/rules.ts";
 import { qualify, quoteIdent, toNumber } from "./sql.ts";
 
 const MAX_PAGE_SIZE = 200;
@@ -199,6 +200,21 @@ export function indexName(request: CreateIndexRequest): string {
   return head + suffix;
 }
 
+export function createIndexDdl(schema: string, request: CreateIndexRequest): string {
+  return `CREATE ${request.unique ? "UNIQUE " : ""}INDEX CONCURRENTLY ${quoteIdent(indexName(request))} ON ${qualify(schema, request.table)} (${request.columns.map(quoteIdent).join(", ")})`;
+}
+
+export function dropIndexDdl(schema: string, name: string): string {
+  return `DROP INDEX CONCURRENTLY ${qualify(schema, name)}`;
+}
+
+export function indexDdlFor(schema: string): IndexDdl {
+  return {
+    create: (table, columns) => `${createIndexDdl(schema, { table, columns })};`,
+    drop: (_table, index) => `${dropIndexDdl(schema, index)};`,
+  };
+}
+
 /**
  * Create an index with CONCURRENTLY so an existing workload keeps running.
  *
@@ -217,7 +233,7 @@ export async function createIndex(
   }
 
   const name = indexName(request);
-  const ddl = `CREATE ${request.unique ? "UNIQUE " : ""}INDEX CONCURRENTLY ${quoteIdent(name)} ON ${qualify(schema, request.table)} (${request.columns.map(quoteIdent).join(", ")})`;
+  const ddl = createIndexDdl(schema, request);
 
   const started = performance.now();
   try {
@@ -273,7 +289,7 @@ export async function dropIndex(
     throw new Error(`${name} enforces uniqueness; refusing to drop a UNIQUE index`);
   }
 
-  const ddl = `DROP INDEX CONCURRENTLY ${qualify(schema, name)}`;
+  const ddl = dropIndexDdl(schema, name);
   const started = performance.now();
   await pool.query(ddl);
 

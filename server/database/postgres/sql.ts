@@ -63,3 +63,10 @@ export function toNumber(value: unknown, fallback = 0): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
+
+/**
+ * PostgreSQL separates database from schema, where MySQL does not. DBSCOPE
+ * inspects the default schema; a schema selector is the natural extension
+ * point if multi-schema inspection is added.
+ */
+export const SCHEMA = "public";

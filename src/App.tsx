@@ -189,7 +189,7 @@ function RouteContent({ session }: { session: SessionInfo }) {
       />
     );
   if (location.pathname.startsWith("/tables/") && params.table)
-    return <TableDetail table={params.table} onExplain={openExplain} />;
+    return <TableDetail table={params.table} engine={session.engine} onExplain={openExplain} />;
   if (location.pathname === "/queries")
     return <Queries canReset={session.engine === "postgres"} onExplain={openExplain} />;
   if (location.pathname === "/explain")

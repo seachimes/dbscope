@@ -20,15 +20,8 @@ import {
 } from "./introspect.ts";
 import { fetchQueryStats, probeQueryStats, resetQueryStats } from "./queries.ts";
 import { runExplain, suggestIndexes } from "./explain.ts";
-import { createIndex, dropIndex, fetchPage } from "./data.ts";
-import { toNumber } from "./sql.ts";
-
-/**
- * PostgreSQL separates database from schema, where MySQL does not. DBSCOPE
- * inspects the default schema; a schema selector is the natural extension
- * point if multi-schema inspection is added.
- */
-const SCHEMA = "public";
+import { createIndex, dropIndex, fetchPage, indexDdlFor } from "./data.ts";
+import { SCHEMA, toNumber } from "./sql.ts";
 
 const asPool = (pool: DatabasePool): Pool => pool as Pool;
 
@@ -46,7 +39,7 @@ function buildSummaries(
   return tables.map((table) => {
     const cols = columns.get(table.name) ?? [];
     const idx = indexes.get(table.name) ?? [];
-    const issues = tableIssues(table, cols, idx, relations);
+    const issues = tableIssues(table, cols, idx, relations, indexDdlFor(SCHEMA));
     const load = loads.get(table.name) ?? null;
 
     return {

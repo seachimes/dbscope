@@ -481,6 +481,21 @@ a {
   font-size: 12px;
 }
 
+.ddl-block {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.ddl-block pre.raw {
+  flex: 1;
+  min-width: 0;
+}
+
+.ddl-copy {
+  flex-shrink: 0;
+}
+
 .btn-row {
   display: flex;
   gap: 9px;

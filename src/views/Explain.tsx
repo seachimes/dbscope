@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { BeforeAfter, ExplainPayload, SessionInfo } from "#shared/types.ts";
 import { api } from "../lib/api.ts";
 import { PlanFlow } from "../components/PlanFlow.tsx";
-import { BusyButton, Empty, IssueRow, Panel } from "../components/common.tsx";
+import { BusyButton, DdlBlock, Empty, IssueRow, Panel } from "../components/common.tsx";
 import { ms, n } from "../lib/format.ts";
 import { usePreferences } from "../lib/preferences.tsx";
 import { localizedAdvice } from "../lib/localize.ts";
@@ -179,7 +179,7 @@ export function Explain({ session, initialSql }: { session: SessionInfo; initial
                         </span>
                         <span className="small dim">{s.reason}</span>
                       </div>
-                      <pre className="raw">{s.ddl}</pre>
+                      <DdlBlock ddl={s.ddl} />
                       <ul className="tradeoffs">
                         {s.tradeoffs.map((tradeoff, j) => (
                           <li key={j}>{tradeoff}</li>
@@ -333,7 +333,7 @@ function Verdict({ comparison }: { comparison: BeforeAfter }) {
         </div>
       ) : null}
 
-      <pre className="raw mt">{comparison.ddl}</pre>
+      <DdlBlock className="mt" ddl={comparison.ddl} />
 
       <div className="cols-wide mt">
         <Panel title={t("before")} flush>

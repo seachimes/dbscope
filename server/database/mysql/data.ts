@@ -7,7 +7,7 @@ import type {
   IndexMutationResult,
 } from "#shared/types.ts";
 import { CELL_PREVIEW_CHARS } from "../adapter.ts";
-import type { IndexDdl } from "../../core/rules.ts";
+import type { IndexDdl, Statements } from "../../core/rules.ts";
 import { assertTableExists, quoteIdent } from "./introspect.ts";
 
 const MAX_PAGE_SIZE = 200;
@@ -28,21 +28,31 @@ function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
-export function createIndexDdl(req: CreateIndexRequest): { name: string; ddl: string } {
-  const name = req.name?.trim() || `idx_${req.columns.join("_")}`.slice(0, 60);
-  const ddl =
-    `ALTER TABLE ${quoteIdent(req.table)} ADD ${req.unique ? "UNIQUE " : ""}INDEX ` +
-    `${quoteIdent(name)} (${req.columns.map(quoteIdent).join(", ")})`;
-  return { name, ddl };
+export function indexName(req: CreateIndexRequest): string {
+  return req.name?.trim() || `idx_${req.columns.join("_")}`.slice(0, 60);
 }
 
-export function dropIndexDdl(table: string, name: string): string {
-  return `ALTER TABLE ${quoteIdent(table)} DROP INDEX ${quoteIdent(name)}`;
+export function createIndexDdl(req: CreateIndexRequest): Statements {
+  const name = quoteIdent(indexName(req));
+  const table = quoteIdent(req.table);
+  const columns = req.columns.map(quoteIdent).join(", ");
+  const unique = req.unique ? "UNIQUE " : "";
+  return {
+    ddl: `ALTER TABLE ${table} ADD ${unique}INDEX ${name} (${columns});`,
+    fileDdl: `CREATE ${unique}INDEX ${name} ON ${table} (${columns});`,
+  };
+}
+
+export function dropIndexDdl(table: string, name: string): Statements {
+  return {
+    ddl: `ALTER TABLE ${quoteIdent(table)} DROP INDEX ${quoteIdent(name)};`,
+    fileDdl: `DROP INDEX ${quoteIdent(name)} ON ${quoteIdent(table)};`,
+  };
 }
 
 export const indexDdl: IndexDdl = {
-  create: (table, columns) => `${createIndexDdl({ table, columns }).ddl};`,
-  drop: (table, index) => `${dropIndexDdl(table, index)};`,
+  create: (table, columns) => createIndexDdl({ table, columns }),
+  drop: dropIndexDdl,
 };
 
 /** Select a preview of each column; see CELL_PREVIEW_CHARS. */
@@ -182,15 +192,16 @@ export async function createIndex(
     if (!valid.has(col)) throw new Error(`unknown column: ${req.table}.${col}`);
   }
 
-  const { name, ddl } = createIndexDdl(req);
+  const name = indexName(req);
+  const statements = createIndexDdl(req);
 
   const started = performance.now();
-  await pool.query<ResultSetHeader>(ddl);
+  await pool.query<ResultSetHeader>(statements.ddl.slice(0, -1));
   const elapsedMs = Math.round(performance.now() - started);
 
   return {
     ok: true,
-    ddl: ddl + ";",
+    ...statements,
     elapsedMs,
     message: `Created ${name} on ${req.table} (${req.columns.join(", ")}) in ${elapsedMs} ms`,
   };
@@ -243,14 +254,14 @@ export async function dropIndex(
     );
   }
 
-  const ddl = dropIndexDdl(table, indexName);
+  const statements = dropIndexDdl(table, indexName);
   const started = performance.now();
-  await pool.query<ResultSetHeader>(ddl);
+  await pool.query<ResultSetHeader>(statements.ddl.slice(0, -1));
   const elapsedMs = Math.round(performance.now() - started);
 
   return {
     ok: true,
-    ddl: ddl + ";",
+    ...statements,
     elapsedMs,
     message: `Dropped ${indexName} from ${table} in ${elapsedMs} ms`,
   };

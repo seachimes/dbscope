@@ -164,6 +164,8 @@ export interface Issue {
   columns?: string[];
   /** Ready-to-run DDL, when the fix is mechanical. */
   suggestion?: string;
+  /** The same change as CREATE/DROP INDEX, for the project's own SQL files. */
+  fileSuggestion?: string;
 }
 
 // ----------------------------------------------------------------- overview
@@ -334,6 +336,7 @@ export interface IndexSuggestion {
   columns: string[];
   reason: string;
   ddl: string;
+  fileDdl: string;
   confidence: AdviceConfidence;
   /** Risks or checks that should happen before keeping this index. */
   tradeoffs: string[];
@@ -352,7 +355,13 @@ export interface CreateIndexRequest {
 
 export interface IndexMutationResult {
   ok: boolean;
+  /** The statement DBSCOPE ran. */
   ddl: string;
+  /**
+   * The same change as plain CREATE/DROP INDEX, for the project's own schema
+   * or migration files: no ALTER TABLE, no CONCURRENTLY, no schema qualifier.
+   */
+  fileDdl: string;
   elapsedMs: number;
   message: string;
 }
@@ -362,6 +371,7 @@ export interface BeforeAfter {
   before: ExplainPayload;
   after: ExplainPayload;
   ddl: string;
+  fileDdl: string;
   verdict: {
     rowsBefore: number;
     rowsAfter: number;

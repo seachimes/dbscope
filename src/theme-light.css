@@ -75,8 +75,7 @@
 :root[data-theme="light"] .field textarea,
 :root[data-theme="light"] .inline-input,
 :root[data-theme="light"] .sql-editor,
-:root[data-theme="light"] pre.raw,
-:root[data-theme="light"] .issue-ddl {
+:root[data-theme="light"] pre.raw {
   background: #fff;
   border-color: #d4d4d8;
 }

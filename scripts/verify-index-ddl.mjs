@@ -45,21 +45,28 @@ try {
     page.on("dialog", (dialog) => dialog.accept());
     await connect(page, engine);
 
+    const text = async (locator) => ((await locator.textContent()) ?? "").trim();
+    const copies = async (box) => {
+      const shown = await text(box.locator("pre"));
+      await box.locator(".ddl-copy").click();
+      await box.locator('.ddl-copy[data-state="copied"]').waitFor();
+      return (await page.evaluate(() => navigator.clipboard.readText())) === shown;
+    };
+    const runSyntax = engine === "mysql" ? "ALTER TABLE" : "CREATE INDEX CONCURRENTLY";
+
     await page.goto(`${base}/tables/posts`);
-    const suggestion = page.locator(".issue-fix", { has: page.locator(".issue-ddl") }).first();
-    const suggested = (await suggestion.locator(".issue-ddl").textContent()) ?? "";
+    const issue = page.locator(".issue .ddl-block").first();
+    const issueRun = await text(issue.locator('pre[data-kind="run"]'));
+    const issueFile = await text(issue.locator('pre[data-kind="file"]'));
+    check(`issue suggestions run ${engine} syntax`, issueRun.startsWith(runSyntax), issueRun);
     check(
-      `issue suggestions use ${engine} syntax`,
-      engine === "mysql"
-        ? suggested.startsWith("ALTER TABLE")
-        : suggested.startsWith("CREATE INDEX"),
-      suggested,
+      "issue suggestions offer a plain CREATE INDEX for SQL files",
+      /^CREATE INDEX \S+ ON \S+ \(/.test(issueFile) && !issueFile.includes("CONCURRENTLY"),
+      issueFile,
     );
-    await suggestion.locator(".ddl-copy").click();
-    await suggestion.locator(".ddl-copy", { hasText: "Copied" }).waitFor();
     check(
-      "copy puts the issue suggestion on the clipboard",
-      (await page.evaluate(() => navigator.clipboard.readText())) === suggested,
+      "copy puts the file form on the clipboard",
+      await copies(issue.locator(".ddl-box", { has: page.locator('pre[data-kind="file"]') })),
     );
 
     await page.goto(`${base}/tables/${table}`);
@@ -67,40 +74,43 @@ try {
     for (const column of columns) {
       await page.locator(".col-chip", { hasText: new RegExp(`^${column}`) }).click();
     }
-
-    const preview = (await page.locator(".ddl-block pre").first().textContent()) ?? "";
+    const preview = page.locator(".ddl-block").first();
+    const previewRun = await text(preview.locator('pre[data-kind="run"]'));
+    const previewFile = await text(preview.locator('pre[data-kind="file"]'));
+    check(`preview runs ${engine} syntax`, previewRun.startsWith(runSyntax), previewRun);
     check(
-      `preview uses ${engine} syntax`,
-      engine === "mysql" ? preview.startsWith("ALTER TABLE") : preview.startsWith("CREATE INDEX"),
-      preview,
-    );
-
-    await page.locator(".ddl-block .ddl-copy").first().click();
-    await page.locator(".ddl-copy", { hasText: "Copied" }).first().waitFor();
-    check(
-      "copy puts the preview on the clipboard",
-      (await page.evaluate(() => navigator.clipboard.readText())) === preview,
+      "copy puts the run form on the clipboard",
+      await copies(preview.locator(".ddl-box", { has: page.locator('pre[data-kind="run"]') })),
     );
 
     await page.getByRole("button", { name: "Create index" }).click();
-    const executedBlock = page.locator(".field", { hasText: "Executed DDL" }).locator("pre");
-    await executedBlock.waitFor({ timeout: 60000 });
-    const executed = (await executedBlock.textContent()) ?? "";
-    check("the executed DDL is shown after creation", executed.length > 0);
+    const executed = page.locator(".field", { hasText: "Executed DDL" });
+    await executed.locator('pre[data-kind="run"]').waitFor({ timeout: 60000 });
+    const executedRun = await text(executed.locator('pre[data-kind="run"]'));
+    const executedFile = await text(executed.locator('pre[data-kind="file"]'));
     check(
       "the preview matches the executed DDL",
-      preview === executed,
-      `${preview} != ${executed}`,
+      previewRun === executedRun,
+      `${previewRun} != ${executedRun}`,
+    );
+    check(
+      "the preview file form matches the server's",
+      previewFile === executedFile,
+      `${previewFile} != ${executedFile}`,
     );
 
     const created = engine === "mysql" ? "idx_name_id" : "idx_categories_name_id";
-    const row = page.locator(".tbl tr", { hasText: created });
-    await row.getByRole("button", { name: "Drop" }).click();
     await page
-      .locator(".field", { hasText: "Executed DDL" })
-      .locator("pre", { hasText: "DROP INDEX" })
+      .locator(".tbl tr", { hasText: created })
+      .getByRole("button", { name: "Drop" })
+      .click();
+    await executed
+      .locator('pre[data-kind="file"]', { hasText: "DROP INDEX" })
       .waitFor({ timeout: 60000 });
-    check("dropping shows the executed DROP INDEX", true);
+    check(
+      "dropping shows a plain DROP INDEX for SQL files",
+      !(await text(executed.locator('pre[data-kind="file"]'))).includes("CONCURRENTLY"),
+    );
     await context.close();
   }
 } finally {

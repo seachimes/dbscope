@@ -145,8 +145,10 @@ const en = {
   createIndex: "Create index",
   copy: "Copy",
   copied: "Copied",
-  copySelected: "Selected, press Ctrl+C",
+  copySelected: "Selected: press Ctrl+C",
   executedDdl: "Executed DDL",
+  ddlForFile: "For your SQL file",
+  ddlRunHere: "Run by DBSCOPE",
   dropConfirm: "Drop index {index} from {table}? Query plans may change immediately.",
   createConfirm:
     "Create index on {table} ({columns})? Building it adds load, and the table may be locked while it runs.",
@@ -305,8 +307,10 @@ const ja: Record<MessageKey, string> = {
   createIndex: "インデックス作成",
   copy: "コピー",
   copied: "コピーしました",
-  copySelected: "選択済み、Ctrl+C でコピー",
+  copySelected: "選択しました。Ctrl+C でコピー",
   executedDdl: "実行した DDL",
+  ddlForFile: "SQL ファイル用",
+  ddlRunHere: "DBSCOPE が実行",
   dropConfirm: "{table} の {index} を削除しますか？実行計画が即座に変化する可能性があります。",
   createConfirm:
     "{table} ({columns}) にインデックスを作成しますか？作成中にテーブルへ負荷がかかる可能性があります。",

@@ -179,7 +179,7 @@ export function Explain({ session, initialSql }: { session: SessionInfo; initial
                         </span>
                         <span className="small dim">{s.reason}</span>
                       </div>
-                      <DdlBlock ddl={s.ddl} />
+                      <DdlBlock ddl={s.ddl} fileDdl={s.fileDdl} />
                       <ul className="tradeoffs">
                         {s.tradeoffs.map((tradeoff, j) => (
                           <li key={j}>{tradeoff}</li>
@@ -333,7 +333,7 @@ function Verdict({ comparison }: { comparison: BeforeAfter }) {
         </div>
       ) : null}
 
-      <DdlBlock className="mt" ddl={comparison.ddl} />
+      <DdlBlock className="mt" ddl={comparison.ddl} fileDdl={comparison.fileDdl} />
 
       <div className="cols-wide mt">
         <Panel title={t("before")} flush>

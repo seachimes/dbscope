@@ -23,8 +23,22 @@ const HUGE_ROWS = 100_000;
  * can be copied into a schema file unchanged.
  */
 export interface IndexDdl {
-  create(table: string, columns: string[]): string;
-  drop(table: string, index: string): string;
+  create(table: string, columns: string[]): Statements;
+  drop(table: string, index: string): Statements;
+}
+
+/**
+ * What DBSCOPE runs, and the portable form for the project's SQL files. Both
+ * end in a semicolon so they paste as-is; the driver is sent one statement
+ * without it.
+ */
+export interface Statements {
+  ddl: string;
+  fileDdl: string;
+}
+
+function suggest(statements: Statements): Pick<Issue, "suggestion" | "fileSuggestion"> {
+  return { suggestion: statements.ddl, fileSuggestion: statements.fileDdl };
 }
 
 export function tableIssues(
@@ -75,7 +89,7 @@ export function tableIssues(
           : "This is a declared foreign key."),
       table: table.name,
       columns: [rel.fromColumn],
-      suggestion: ddl.create(table.name, [rel.fromColumn]),
+      ...suggest(ddl.create(table.name, [rel.fromColumn])),
     });
   }
 
@@ -99,7 +113,7 @@ export function tableIssues(
           "Timeline-style queries (ORDER BY ... DESC LIMIT n) on this column will sort the whole table before returning a handful of rows.",
         table: table.name,
         columns: [col.name],
-        suggestion: ddl.create(table.name, [col.name]),
+        ...suggest(ddl.create(table.name, [col.name])),
       });
     }
   }
@@ -122,7 +136,7 @@ export function tableIssues(
         detail: `(${a.columns.join(", ")}) is a prefix of ${b.name} (${b.columns.join(", ")}). Dropping it speeds up writes.`,
         table: table.name,
         columns: a.columns,
-        suggestion: ddl.drop(table.name, a.name),
+        ...suggest(ddl.drop(table.name, a.name)),
       });
     }
   }

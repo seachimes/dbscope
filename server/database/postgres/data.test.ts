@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import type { Pool } from "pg";
-import { dropIndex, indexName, previewColumn } from "./data.ts";
+import { createIndexDdl, dropIndex, dropIndexDdl, indexName, previewColumn } from "./data.ts";
 
 test("uses the requested name when it fits", () => {
   assert.equal(
@@ -88,4 +88,15 @@ test("previewColumn truncates text and JSON and sizes binary values", () => {
     `'<binary ' || octet_length("avatar") || ' B>' AS "avatar"`,
   );
   assert.equal(previewColumn(column("id", "int8", "N")), '"id"');
+});
+
+test("the SQL file form drops CONCURRENTLY and the schema so a migration can run it", () => {
+  assert.deepEqual(createIndexDdl("public", { table: "posts", columns: ["user_id"] }), {
+    ddl: 'CREATE INDEX CONCURRENTLY "idx_posts_user_id" ON "public"."posts" ("user_id");',
+    fileDdl: 'CREATE INDEX "idx_posts_user_id" ON "posts" ("user_id");',
+  });
+  assert.deepEqual(dropIndexDdl("public", "idx_posts_user_id"), {
+    ddl: 'DROP INDEX CONCURRENTLY "public"."idx_posts_user_id";',
+    fileDdl: 'DROP INDEX "idx_posts_user_id";',
+  });
 });

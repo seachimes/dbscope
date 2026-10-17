@@ -544,8 +544,7 @@ body {
 
 .notice,
 .error-box,
-pre.raw,
-.issue-ddl {
+pre.raw {
   border-radius: 6px;
 }
 .notice {
@@ -579,7 +578,6 @@ pre.raw {
 .qrow {
   min-width: 0;
 }
-.issue-ddl,
 .qsql,
 pre.raw,
 .flow-sub,
@@ -590,10 +588,6 @@ pre.raw,
 }
 .issue-fix {
   min-width: 0;
-}
-.issue-ddl {
-  max-width: 100%;
-  white-space: pre-wrap;
 }
 .view-head {
   gap: 16px;

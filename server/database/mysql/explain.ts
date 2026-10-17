@@ -299,7 +299,7 @@ export function suggestIndexes(
           : sorting
             ? "An index in this order lets MySQL return sorted rows without a filesort."
             : "No index was used for this access.",
-      ddl: indexDdl.create(table, columns),
+      ...indexDdl.create(table, columns),
       confidence: equality.length > 0 && (sorting || row.type === "ALL") ? "high" : "medium",
       tradeoffs: [
         "Adds disk/buffer-pool usage and work to INSERT/UPDATE/DELETE.",

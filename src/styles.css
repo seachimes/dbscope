@@ -171,6 +171,19 @@ a {
   letter-spacing: -0.02em;
 }
 
+.brand-version {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-faint);
+  align-self: center;
+}
+
 /* The wordmark's own heat dot: the tool announces its metaphor immediately. */
 .brand-dot {
   width: 7px;
@@ -1407,7 +1420,8 @@ pre.raw {
     border-bottom: none;
     border-right: 1px solid var(--line);
   }
-  .brand-sub {
+  .brand-sub,
+  .rail .brand-version {
     display: none;
   }
   .nav {

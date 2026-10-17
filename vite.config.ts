@@ -2,7 +2,27 @@ import { defineConfig } from "vite-plus";
 // v6 transforms JSX with oxc rather than Babel, which is where most of the
 // build time used to go; the separate -oxc plugin is now folded into this one.
 import react from "@vitejs/plugin-react";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+
+/**
+ * The release tag the UI was built from. The release workflow builds on a tag
+ * push from a shallow clone without tags, so GITHUB_REF_NAME is the source
+ * there; package.json's version is not bumped per release.
+ */
+function buildVersion(): string {
+  if (process.env.GITHUB_REF_TYPE === "tag" && process.env.GITHUB_REF_NAME) {
+    return process.env.GITHUB_REF_NAME;
+  }
+  try {
+    return execFileSync("git", ["describe", "--tags", "--always", "--dirty"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "dev";
+  }
+}
 
 export default defineConfig({
   fmt: {
@@ -13,6 +33,7 @@ export default defineConfig({
     ignorePatterns: ["**/*.md", "**/*.yaml", "**/*.yml", "**/*.json"],
   },
   plugins: [react()],
+  define: { __DBSCOPE_VERSION__: JSON.stringify(buildVersion()) },
   resolve: {
     alias: {
       "#shared": fileURLToPath(new URL("./shared", import.meta.url)),

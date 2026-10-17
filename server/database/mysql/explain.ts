@@ -9,6 +9,7 @@ import type {
 } from "#shared/types.ts";
 import { explainIssues, fmt } from "../../core/rules.ts";
 import { queryAdvice } from "../../core/advice.ts";
+import { indexDdl } from "./data.ts";
 import {
   assertExplainable,
   extractEqualityColumns,
@@ -289,7 +290,6 @@ export function suggestIndexes(
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const name = `idx_${columns.join("_")}`.slice(0, 60);
     suggestions.push({
       table,
       columns,
@@ -299,7 +299,7 @@ export function suggestIndexes(
           : sorting
             ? "An index in this order lets MySQL return sorted rows without a filesort."
             : "No index was used for this access.",
-      ddl: `ALTER TABLE \`${table}\` ADD INDEX \`${name}\` (${columns.map((c) => `\`${c}\``).join(", ")});`,
+      ddl: indexDdl.create(table, columns),
       confidence: equality.length > 0 && (sorting || row.type === "ALL") ? "high" : "medium",
       tradeoffs: [
         "Adds disk/buffer-pool usage and work to INSERT/UPDATE/DELETE.",

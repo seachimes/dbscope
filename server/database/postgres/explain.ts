@@ -7,7 +7,8 @@ import {
 } from "../../core/sql-guard.ts";
 import { queryAdvice } from "../../core/advice.ts";
 import { fmt } from "../../core/rules.ts";
-import { quoteIdent } from "./sql.ts";
+import { SCHEMA } from "./sql.ts";
+import { indexDdlFor } from "./data.ts";
 
 /** A node of PostgreSQL's `EXPLAIN (FORMAT JSON)` output. */
 export interface PgPlanNode {
@@ -190,7 +191,6 @@ export function suggestIndexes(
     const existing = indexesByTable.get(table) ?? [];
     const redundant = existing.some((idx) => columns.every((c, i) => idx.columns[i] === c));
 
-    const name = `idx_${table}_${columns.join("_")}`.slice(0, 60);
     suggestions.push({
       table,
       columns,
@@ -198,7 +198,7 @@ export function suggestIndexes(
         ? `The plan reads ~${fmt(step.rows ?? 0)} rows sequentially and then sorts them; an index in this order can serve both.`
         : `The plan reads ~${fmt(step.rows ?? 0)} rows sequentially; these columns appear in the WHERE clause.`,
       // CONCURRENTLY keeps an existing workload running while the index builds.
-      ddl: `CREATE INDEX CONCURRENTLY ${quoteIdent(name)} ON ${quoteIdent(table)} (${columns.map(quoteIdent).join(", ")});`,
+      ddl: indexDdlFor(SCHEMA).create(table, columns),
       confidence: equality.length > 0 ? "high" : "medium",
       tradeoffs: [
         "Adds storage and work to INSERT/UPDATE/DELETE.",

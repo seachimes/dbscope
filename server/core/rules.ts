@@ -18,11 +18,21 @@ import type { RawTable } from "./load.ts";
 const BIG_ROWS = 10_000;
 const HUGE_ROWS = 100_000;
 
+/**
+ * The engine's own DDL, so a suggestion is the statement DBSCOPE would run and
+ * can be copied into a schema file unchanged.
+ */
+export interface IndexDdl {
+  create(table: string, columns: string[]): string;
+  drop(table: string, index: string): string;
+}
+
 export function tableIssues(
   table: RawTable,
   columns: ColumnInfo[],
   indexes: IndexInfo[],
   relations: RelationInfo[],
+  ddl: IndexDdl,
 ): Issue[] {
   const issues: Issue[] = [];
   const secondary = indexes.filter((i) => !i.isPrimary);
@@ -65,7 +75,7 @@ export function tableIssues(
           : "This is a declared foreign key."),
       table: table.name,
       columns: [rel.fromColumn],
-      suggestion: `ALTER TABLE \`${table.name}\` ADD INDEX \`idx_${rel.fromColumn}\` (\`${rel.fromColumn}\`);`,
+      suggestion: ddl.create(table.name, [rel.fromColumn]),
     });
   }
 
@@ -89,7 +99,7 @@ export function tableIssues(
           "Timeline-style queries (ORDER BY ... DESC LIMIT n) on this column will sort the whole table before returning a handful of rows.",
         table: table.name,
         columns: [col.name],
-        suggestion: `ALTER TABLE \`${table.name}\` ADD INDEX \`idx_${col.name}\` (\`${col.name}\`);`,
+        suggestion: ddl.create(table.name, [col.name]),
       });
     }
   }
@@ -112,7 +122,7 @@ export function tableIssues(
         detail: `(${a.columns.join(", ")}) is a prefix of ${b.name} (${b.columns.join(", ")}). Dropping it speeds up writes.`,
         table: table.name,
         columns: a.columns,
-        suggestion: `ALTER TABLE \`${table.name}\` DROP INDEX \`${a.name}\`;`,
+        suggestion: ddl.drop(table.name, a.name),
       });
     }
   }

@@ -15,6 +15,7 @@ import {
 import { fetchQueryStats } from "./queries.ts";
 import { aggregateLoad } from "../../core/load.ts";
 import { computeHeat, tableIssues } from "../../core/rules.ts";
+import { indexDdl } from "./data.ts";
 
 /**
  * Build the whole Overview in one pass. The UI asks once and gets everything
@@ -46,7 +47,7 @@ export async function buildOverview(pool: Pool, info: SessionInfo): Promise<Over
   const summaries: TableSummary[] = tables.map((table) => {
     const cols = columns.get(table.name) ?? [];
     const idx = indexes.get(table.name) ?? [];
-    const issues = tableIssues(table, cols, idx, relations);
+    const issues = tableIssues(table, cols, idx, relations, indexDdl);
     const load = loadByTable.get(table.name) ?? null;
     const loadShare = load ? load.totalTimeMs / maxLoadTime : 0;
 
@@ -106,7 +107,7 @@ export async function buildTableDetail(
   const relations = await fetchRelations(pool, schema, tables, columns, indexes);
   const cols = columns.get(tableName) ?? [];
   const idx = indexes.get(tableName) ?? [];
-  const issues = tableIssues(table, cols, idx, relations);
+  const issues = tableIssues(table, cols, idx, relations, indexDdl);
 
   let queries: Awaited<ReturnType<typeof fetchQueryStats>> = [];
   if (info.performanceSchema.digestEnabled) {

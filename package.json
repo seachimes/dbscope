@@ -28,6 +28,7 @@
     "verify": "tsx scripts/verify-e2e.ts",
     "verify:postgres": "tsx scripts/verify-postgres.ts && tsx scripts/verify-postgres-filters.ts",
     "verify:parity": "tsx scripts/verify-fixture-parity.ts",
+    "verify:preview": "tsx scripts/verify-cell-preview.ts",
     "verify:ui": "node scripts/verify-ui.mjs"
   },
   "dependencies": {

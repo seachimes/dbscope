@@ -6,13 +6,36 @@ import type {
   IndexInfo,
   IndexMutationResult,
 } from "#shared/types.ts";
+import { CELL_PREVIEW_CHARS } from "../adapter.ts";
 import { assertTableExists, quoteIdent } from "./introspect.ts";
 
 const MAX_PAGE_SIZE = 200;
 const MAX_PAGE = 10_000;
 
+const TEXT_TYPES = new Set([
+  "char",
+  "varchar",
+  "tinytext",
+  "text",
+  "mediumtext",
+  "longtext",
+  "json",
+]);
+const BINARY_TYPES = new Set(["binary", "varbinary", "tinyblob", "blob", "mediumblob", "longblob"]);
+
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+/** Select a preview of each column; see CELL_PREVIEW_CHARS. */
+export function previewColumn(name: string, dataType: string): string {
+  const ident = quoteIdent(name);
+  const type = dataType.toLowerCase();
+  if (TEXT_TYPES.has(type)) return `LEFT(${ident}, ${CELL_PREVIEW_CHARS}) AS ${ident}`;
+  if (BINARY_TYPES.has(type)) {
+    return `CONCAT('<binary ', OCTET_LENGTH(${ident}), ' B>') AS ${ident}`;
+  }
+  return ident;
 }
 
 /**
@@ -44,19 +67,23 @@ export async function fetchPage(
   const orderDir = opts.orderDir === "desc" ? "DESC" : "ASC";
 
   const [cols] = await pool.query<RowDataPacket[]>(
-    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+    `SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS
       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`,
     [schema, table],
   );
   const columnNames = cols.map((c) => String(c.COLUMN_NAME));
+  const projection = cols
+    .map((c) => previewColumn(String(c.COLUMN_NAME), String(c.DATA_TYPE)))
+    .join(", ");
 
   // Sorting by an arbitrary user-supplied column is only safe once we know the
-  // column actually exists on this table.
+  // column actually exists on this table. The table qualifier matters: a bare
+  // name would resolve to the truncated preview alias, not the column.
   let orderClause = "";
   let orderBy: string | null = null;
   if (opts.orderBy && columnNames.includes(opts.orderBy)) {
     orderBy = opts.orderBy;
-    orderClause = ` ORDER BY ${quoteIdent(orderBy)} ${orderDir}`;
+    orderClause = ` ORDER BY ${quoteIdent(table)}.${quoteIdent(orderBy)} ${orderDir}`;
   }
 
   // Filters are structured: the column is validated against information_schema,
@@ -94,7 +121,7 @@ export async function fetchPage(
 
   const started = performance.now();
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT /*+ MAX_EXECUTION_TIME(3000) */ * FROM ${quoteIdent(table)}${whereClause}${orderClause} LIMIT ? OFFSET ?`,
+    `SELECT /*+ MAX_EXECUTION_TIME(3000) */ ${projection} FROM ${quoteIdent(table)}${whereClause}${orderClause} LIMIT ? OFFSET ?`,
     [...values, pageSize, offset],
   );
   const elapsedMs = Math.round(performance.now() - started);

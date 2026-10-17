@@ -116,6 +116,7 @@ bash fixture/workload.sh 3      # generates traffic so the Queries view has data
 pnpm verify                     # MySQL assertions through a real SSH tunnel
 pnpm verify:postgres            # the same for PostgreSQL
 pnpm verify:parity              # asserts the two fixtures really are identical
+pnpm verify:preview             # Data Viewer cells stay previews on both engines
 ```
 
 One difference is expected and is not a bug: reported row counts are planner
